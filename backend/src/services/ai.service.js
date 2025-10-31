@@ -253,6 +253,33 @@ class AIService {
           content = content.slice(jsonStart, jsonEnd + 1);
         }
 
+        // Validate and fix JSON
+        try {
+          const parsed = JSON.parse(content);
+          // Ensure sources is an array of strings
+          if (parsed.sources && Array.isArray(parsed.sources)) {
+            parsed.sources = parsed.sources.map(s => typeof s === 'string' ? s : String(s));
+          }
+          // Return clean stringified version
+          content = JSON.stringify(parsed);
+        } catch (parseError) {
+          console.error('JSON parse error in fact-check, attempting fix:', parseError.message);
+          // Try to fix common JSON issues
+          content = content.replace(/,(\s*[}\]])/g, '$1') // Remove trailing commas
+                          .replace(/\n/g, ' ')  // Remove newlines
+                          .replace(/\r/g, '')   // Remove carriage returns
+                          .replace(/\t/g, ' '); // Replace tabs with spaces
+          
+          // Try parsing again
+          try {
+            const parsed = JSON.parse(content);
+            content = JSON.stringify(parsed);
+          } catch (secondError) {
+            console.error('Failed to fix JSON, returning error');
+            throw new Error('Invalid JSON from AI: ' + secondError.message);
+          }
+        }
+
         return {
           success: true,
           data: content,
@@ -285,6 +312,28 @@ class AIService {
         const gEnd = groqContent.lastIndexOf('}');
         if (gStart !== -1 && gEnd !== -1 && gEnd > gStart) {
           groqContent = groqContent.slice(gStart, gEnd + 1);
+        }
+
+        // Validate and fix JSON
+        try {
+          const parsed = JSON.parse(groqContent);
+          if (parsed.sources && Array.isArray(parsed.sources)) {
+            parsed.sources = parsed.sources.map(s => typeof s === 'string' ? s : String(s));
+          }
+          groqContent = JSON.stringify(parsed);
+        } catch (parseError) {
+          console.error('JSON parse error in Groq fact-check, attempting fix:', parseError.message);
+          groqContent = groqContent.replace(/,(\s*[}\]])/g, '$1')
+                                  .replace(/\n/g, ' ')
+                                  .replace(/\r/g, '')
+                                  .replace(/\t/g, ' ');
+          try {
+            const parsed = JSON.parse(groqContent);
+            groqContent = JSON.stringify(parsed);
+          } catch (secondError) {
+            console.error('Failed to fix Groq JSON, returning error');
+            throw new Error('Invalid JSON from Groq AI: ' + secondError.message);
+          }
         }
 
         return {
