@@ -1,0 +1,21 @@
+{
+  "name": "ai-newsroom",
+  "version": "1.0.0",
+  "description": "AI-powered collaborative newsroom platform",
+  "main": "index.js",
+  "scripts": {
+    "dev": "concurrently --kill-others-on-fail \"npm run server\" \"npm run client\"",
+    "server": "cd backend && node src/index.js",
+    "client": "cd frontend && npm run dev",
+    "install:all": "npm install && cd backend && npm install && cd ../frontend && npm install",
+    "build": "cd frontend && npm run build",
+    "docker:up": "docker-compose up -d",
+    "docker:down": "docker-compose down"
+  },
+  "keywords": ["ai", "newsroom", "journalism", "collaboration"],
+  "author": "",
+  "license": "MIT",
+  "devDependencies": {
+    "concurrently": "^8.2.2"
+  }
+}

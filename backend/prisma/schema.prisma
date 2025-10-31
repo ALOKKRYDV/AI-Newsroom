@@ -1,0 +1,203 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum UserRole {
+  WRITER
+  EDITOR
+  ADMIN
+}
+
+enum ArticleStatus {
+  DRAFT
+  IN_REVIEW
+  PUBLISHED
+  ARCHIVED
+}
+
+enum AgentType {
+  RESEARCH
+  WRITING
+  FACT_CHECKING
+  EDITORIAL
+}
+
+model User {
+  id            String    @id @default(uuid())
+  email         String    @unique
+  password      String?
+  name          String
+  role          UserRole  @default(WRITER)
+  avatar        String?
+  provider      String?   // 'local', 'google', 'github'
+  providerId    String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  
+  articles      Article[]
+  comments      Comment[]
+  versions      ArticleVersion[]
+  notifications Notification[]
+  
+  @@index([email])
+}
+
+model Article {
+  id              String          @id @default(uuid())
+  title           String
+  content         String          @db.Text
+  summary         String?         @db.Text
+  status          ArticleStatus   @default(DRAFT)
+  authorId        String
+  author          User            @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  featuredImage   String?
+  tags            String[]
+  publishedAt     DateTime?
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+  
+  sources         Source[]
+  citations       Citation[]
+  images          ArticleImage[]
+  comments        Comment[]
+  versions        ArticleVersion[]
+  factChecks      FactCheck[]
+  agentLogs       AgentLog[]
+  
+  @@index([authorId])
+  @@index([status])
+  @@index([publishedAt])
+}
+
+model Source {
+  id          String    @id @default(uuid())
+  articleId   String
+  article     Article   @relation(fields: [articleId], references: [id], onDelete: Cascade)
+  url         String
+  title       String
+  publisher   String?
+  publishedAt DateTime?
+  credibilityScore Float?
+  summary     String?   @db.Text
+  createdAt   DateTime  @default(now())
+  
+  citations   Citation[]
+  
+  @@index([articleId])
+}
+
+model Citation {
+  id          String   @id @default(uuid())
+  articleId   String
+  article     Article  @relation(fields: [articleId], references: [id], onDelete: Cascade)
+  sourceId    String
+  source      Source   @relation(fields: [sourceId], references: [id], onDelete: Cascade)
+  quote       String   @db.Text
+  context     String?  @db.Text
+  position    Int?
+  createdAt   DateTime @default(now())
+  
+  @@index([articleId])
+  @@index([sourceId])
+}
+
+model ArticleImage {
+  id          String   @id @default(uuid())
+  articleId   String
+  article     Article  @relation(fields: [articleId], references: [id], onDelete: Cascade)
+  url         String
+  caption     String?  @db.Text
+  altText     String?
+  generatedBy String?  // 'dalle', 'midjourney', 'user-upload'
+  position    Int?
+  createdAt   DateTime @default(now())
+  
+  @@index([articleId])
+}
+
+model Comment {
+  id          String   @id @default(uuid())
+  articleId   String
+  article     Article  @relation(fields: [articleId], references: [id], onDelete: Cascade)
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  content     String   @db.Text
+  resolved    Boolean  @default(false)
+  parentId    String?
+  parent      Comment? @relation("CommentReplies", fields: [parentId], references: [id], onDelete: Cascade)
+  replies     Comment[] @relation("CommentReplies")
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  @@index([articleId])
+  @@index([userId])
+}
+
+model ArticleVersion {
+  id          String   @id @default(uuid())
+  articleId   String
+  article     Article  @relation(fields: [articleId], references: [id], onDelete: Cascade)
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  content     String   @db.Text
+  title       String
+  versionNumber Int
+  changeDescription String? @db.Text
+  createdAt   DateTime @default(now())
+  
+  @@index([articleId])
+  @@index([userId])
+}
+
+model FactCheck {
+  id          String   @id @default(uuid())
+  articleId   String
+  article     Article  @relation(fields: [articleId], references: [id], onDelete: Cascade)
+  claim       String   @db.Text
+  verdict     String   // 'true', 'false', 'partially-true', 'unverified'
+  explanation String?  @db.Text
+  confidence  Float?
+  sources     String[] // URLs
+  createdAt   DateTime @default(now())
+  
+  @@index([articleId])
+}
+
+model AgentLog {
+  id          String    @id @default(uuid())
+  articleId   String
+  article     Article   @relation(fields: [articleId], references: [id], onDelete: Cascade)
+  agentType   AgentType
+  input       String    @db.Text
+  output      String    @db.Text
+  status      String    // 'success', 'error', 'pending'
+  errorMessage String?  @db.Text
+  metadata    Json?
+  createdAt   DateTime  @default(now())
+  
+  @@index([articleId])
+  @@index([agentType])
+}
+
+model Notification {
+  id          String   @id @default(uuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type        String   // 'comment', 'review', 'fact-check', 'collaboration'
+  title       String
+  message     String   @db.Text
+  read        Boolean  @default(false)
+  link        String?
+  createdAt   DateTime @default(now())
+  
+  @@index([userId])
+  @@index([read])
+}
